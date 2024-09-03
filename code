@@ -1,0 +1,860 @@
+ #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MaxM 512
+
+typedef struct Stazione {
+    int distanza;
+    int numAuto;
+    int automobili[MaxM];
+    int maxAutonomia;
+    int tappe;
+    // int flagStampa;
+    struct Stazione *next, *prev;
+} Stazione ;
+
+typedef struct lista{
+    int num;
+    struct lista *next, *prev;
+} lista;
+
+/*1*/ Stazione* aggiungiStazione(int staz, Stazione *inizio, int nAuto, int* automobili, int m, Stazione **tail);
+/*2*/ Stazione* demolisciStazione(int staz, Stazione *inizio, int m, Stazione **tail);
+/*3*/ Stazione* aggiungiAuto(Stazione *inizio, int staz, int automobile, Stazione *ultima, int m, Stazione **tail);
+/*4*/ void rottamaAuto(Stazione *inizio, int staz, int automobile, int m, Stazione **tail);
+/*5*/ void pianifica(Stazione *inizio, int partenza, int arrivo, int m, Stazione **tail);
+
+/*6*/ int trovaMax(int *array);
+/*7*/ lista* inserisci1(lista *head, int num);
+/*8*/ lista* inserisci2(lista *head, int num);
+
+/*9*/ void pianificaPercorso1(Stazione *inizio, int partenza, int arrivo, int m, Stazione **tail);
+/*10*/ void pianificaPercorso2(Stazione *inizio, int partenza, int arrivo, int m , Stazione **tail);
+
+int main() {
+    char parolaChiave[21];
+    int i, stazione, numeroAuto, *autom, automobile, partenza, arrivo, mediana = 0;
+
+    Stazione *inizioAutostrada=NULL, *iter, *next, *ultima = NULL, *tail = NULL;
+    while (scanf("%s", parolaChiave)==1){
+
+        if (!strcmp(parolaChiave, "aggiungi-stazione")){
+            i=0;
+
+            if(scanf("%d", &stazione)==1){};
+            if(scanf("%d", &numeroAuto)==1){};
+
+            autom = (int*)malloc(sizeof (int)*numeroAuto);
+
+            while (i<numeroAuto){
+                if(scanf("%d", &autom[i])==1){};
+                i++;
+            }
+
+            inizioAutostrada = aggiungiStazione(stazione, inizioAutostrada, numeroAuto, autom, mediana, &tail);
+
+            mediana = (tail->distanza + inizioAutostrada->distanza)/2;
+
+            free(autom);
+            //printf("%d inizio, %d aggiunta, %d coda, %d MEDIANA\n", inizioAutostrada->distanza, stazione, tail->distanza, mediana);
+
+        } else if (!strcmp(parolaChiave, "demolisci-stazione")){
+
+            if(scanf("%d", &stazione)==1){};
+            inizioAutostrada = demolisciStazione(stazione, inizioAutostrada, mediana, &tail);
+
+        } else if (!strcmp(parolaChiave, "aggiungi-auto")){
+
+            if(scanf("%d %d", &stazione, &automobile)==1){};
+            ultima = aggiungiAuto(inizioAutostrada, stazione, automobile, ultima, mediana, &tail);
+
+        } else if (!strcmp(parolaChiave, "rottama-auto")) {
+
+            if(scanf("%d %d", &stazione, &automobile)==1){};
+            rottamaAuto(inizioAutostrada, stazione, automobile, mediana, &tail);
+
+        } else if (!strcmp(parolaChiave, "pianifica-percorso")){
+
+            if(scanf("%d %d", &partenza, &arrivo)==1){};
+            pianifica(inizioAutostrada, partenza, arrivo, mediana, &tail);
+
+        } else {
+            break;
+        }
+    }
+
+    iter = inizioAutostrada;
+    while (iter) {
+        next = iter->next;
+        free(iter);
+        iter = next;
+    }
+
+    return 0;
+
+}
+
+/*1*/
+// FUNUZIONA
+Stazione* aggiungiStazione(int staz, Stazione *inizio, int nAuto, int *automobili, int m, Stazione **tail) {
+    Stazione *nuovaStazione, *tmp, *tmp2;
+    int i;
+    if (inizio == NULL) {
+        nuovaStazione = malloc(sizeof(Stazione));
+        nuovaStazione->prev = NULL;
+        nuovaStazione->next = NULL;
+        nuovaStazione->numAuto = nAuto;
+        nuovaStazione->maxAutonomia = 0;
+        nuovaStazione->distanza = staz;
+        nuovaStazione->tappe = 0;
+        for (i = 0; i < nAuto; i++) {
+            nuovaStazione->automobili[i] = automobili[i];
+            if (automobili[i] > nuovaStazione->maxAutonomia) {
+                nuovaStazione->maxAutonomia = automobili[i];
+            }
+        }
+        for (; i < MaxM; i++) {
+            nuovaStazione->automobili[i] = -1;
+        }
+
+        printf("aggiunta\n");
+        inizio = nuovaStazione;
+        *tail = nuovaStazione;
+        return inizio;
+    }
+
+    nuovaStazione = malloc(sizeof(Stazione));
+
+    if (staz <= m || m == inizio->distanza) {
+        //printf("%d stazione, scorro dall' inizio perchè la mediana è %d\n", staz, m);
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == staz) {
+                printf("non aggiunta\n");
+                free(nuovaStazione);
+                return inizio;
+            }
+            tmp2 = tmp;
+            if (tmp->distanza > staz)
+                break;
+        }
+
+        if (tmp == NULL) {
+            nuovaStazione->next = NULL;
+            nuovaStazione->prev = tmp2;
+            tmp2->next = nuovaStazione;
+
+        } else if (tmp->prev == NULL) {
+            nuovaStazione->prev = NULL;
+            nuovaStazione->next = tmp;
+            tmp->prev = nuovaStazione;
+        } else {
+            nuovaStazione->prev = tmp->prev;
+            nuovaStazione->next = tmp;
+            tmp->prev->next = nuovaStazione;
+            tmp->prev = nuovaStazione;
+        }
+
+        nuovaStazione->numAuto = nAuto;
+        nuovaStazione->maxAutonomia = 0;
+        nuovaStazione->distanza = staz;
+        nuovaStazione->tappe = 0;
+
+        for (i = 0; i < MaxM; i++) {
+            if (i < nAuto) {
+                nuovaStazione->automobili[i] = automobili[i];
+                if (automobili[i] > nuovaStazione->maxAutonomia) {
+                    nuovaStazione->maxAutonomia = automobili[i];
+                }
+            } else if (nAuto == 0 || i >= nAuto) {
+                nuovaStazione->automobili[i] = -1;
+            }
+        }
+
+        printf("aggiunta\n");
+
+        if (nuovaStazione->distanza < inizio->distanza) {
+            inizio = nuovaStazione;
+        }
+
+        tmp = *tail;
+        if (staz > tmp->distanza)
+            *tail = nuovaStazione;
+
+        return inizio;
+
+    } else {
+        tmp = *tail;
+        tmp2 = tmp;
+        //printf("%d stazione, scorro dalla fine perchè la mediana è %d e la coda è %d \n", staz, m, tmp->distanza);
+        for (tmp = *tail; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == staz) {
+                printf("non aggiunta\n");
+                free(nuovaStazione);
+                return inizio;
+            }
+            tmp2 = tmp;
+            if (tmp->distanza < staz)
+                break;
+        }
+
+        if (tmp == NULL) {
+            nuovaStazione->prev = NULL;
+            nuovaStazione->next = tmp2;
+            tmp2->prev = nuovaStazione;
+        } else if (tmp->next == NULL) {
+            nuovaStazione->next = NULL;
+            nuovaStazione->prev = tmp;
+            tmp->next = nuovaStazione;
+            //*tail = nuovaStazione;
+        } else {
+            nuovaStazione->prev = tmp;
+            nuovaStazione->next = tmp->next;
+            tmp->next->prev = nuovaStazione;
+            tmp->next = nuovaStazione;
+        }
+
+        nuovaStazione->numAuto = nAuto;
+        nuovaStazione->maxAutonomia = 0;
+        nuovaStazione->distanza = staz;
+        nuovaStazione->tappe = 0;
+
+        for (i = 0; i < MaxM; i++) {
+            if (i < nAuto) {
+                nuovaStazione->automobili[i] = automobili[i];
+                if (automobili[i] > nuovaStazione->maxAutonomia) {
+                    nuovaStazione->maxAutonomia = automobili[i];
+                }
+            } else if (nAuto == 0 || i >= nAuto) {
+                nuovaStazione->automobili[i] = -1;
+            }
+        }
+
+        printf("aggiunta\n");
+
+        if (staz < inizio->distanza)
+            inizio = nuovaStazione;
+
+        tmp = *tail;
+        if (staz > tmp->distanza)
+            *tail = nuovaStazione;
+
+        return inizio;
+    }
+
+}
+
+/*2*/
+// SEMBRA FUNZIONARE
+Stazione* demolisciStazione(int staz, Stazione *inizio, int m, Stazione **tail){
+    Stazione *tmp;
+
+    if (staz <= m) {
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == staz) {
+                break;
+            }
+            if (tmp->distanza > staz) {
+                printf("non demolita\n");
+                return inizio;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non demolita\n");
+            return inizio;
+        }
+
+        if (tmp->prev == NULL && tmp->next == NULL) {
+            free(tmp);
+            printf("demolita\n");
+            return NULL;
+        } else if (tmp->prev == NULL) {
+            inizio = inizio->next;
+            tmp->next->prev = NULL;
+            free(tmp);
+        } else if (tmp->next == NULL) {
+            tmp->prev->next = NULL;
+            *tail = tmp->prev;
+            free(tmp);
+        } else {
+            tmp->prev->next = tmp->next;
+            tmp->next->prev = tmp->prev;
+            free(tmp);
+        }
+
+        printf("demolita\n");
+        return inizio;
+
+    } else {
+
+        for (tmp = *tail; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == staz) {
+                break;
+            }
+            if (tmp->distanza < staz) {
+                printf("non demolita\n");
+                return inizio;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non demolita\n");
+            return inizio;
+        }
+
+        if (tmp->prev == NULL && tmp->next == NULL) {
+            free(tmp);
+            printf("demolita\n");
+            return NULL;
+        } else if (tmp->prev == NULL) {
+            inizio = inizio->next;
+            tmp->next->prev = NULL;
+            free(tmp);
+        } else if (tmp->next == NULL) {
+            tmp->prev->next = NULL;
+            *tail = tmp->prev;
+            free(tmp);
+        } else {
+            tmp->prev->next = tmp->next;
+            tmp->next->prev = tmp->prev;
+            free(tmp);
+        }
+
+        printf("demolita\n");
+        return inizio;
+
+
+    }
+}
+
+/*3*/
+// DOVREBBE FUNZIONARE
+Stazione* aggiungiAuto(Stazione *inizio, int staz, int automobile, Stazione *ultima, int m, Stazione **tail){
+    Stazione *tmp;
+    int i;
+
+    if (ultima!=NULL){
+        if (ultima->distanza == staz){
+            for(i=0; ultima->automobili[i]!=-1; i++);
+            if (i==MaxM){
+                printf("non aggiunta\n");
+                return NULL;
+            }
+
+            ultima->automobili[i]=automobile;
+
+            if (automobile > ultima->maxAutonomia){
+                ultima->maxAutonomia = automobile;
+            }
+            ultima->numAuto++;
+            printf("aggiunta\n");
+            return ultima;
+        }
+    }
+
+    if (staz <= m) {
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == staz) {
+                break;
+            }
+            if (tmp->distanza > staz) {
+                printf("non aggiunta\n");
+                return NULL;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non aggiunta\n");
+            return NULL;
+        }
+
+        for (i = 0; tmp->automobili[i] != -1; i++);
+        if (i == MaxM) {
+            printf("non aggiunta\n");
+            return NULL;
+        }
+
+        tmp->automobili[i] = automobile;
+
+        if (automobile > tmp->maxAutonomia) {
+            tmp->maxAutonomia = automobile;
+        }
+        tmp->numAuto++;
+        printf("aggiunta\n");
+
+        return tmp;
+
+    } else {
+
+        for (tmp = *tail; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == staz) {
+                break;
+            }
+            if (tmp->distanza < staz) {
+                printf("non aggiunta\n");
+                return NULL;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non aggiunta\n");
+            return NULL;
+        }
+
+        for (i = 0; tmp->automobili[i] != -1; i++);
+        if (i == MaxM) {
+            printf("non aggiunta\n");
+            return NULL;
+        }
+
+        tmp->automobili[i] = automobile;
+
+        if (automobile > tmp->maxAutonomia) {
+            tmp->maxAutonomia = automobile;
+        }
+        tmp->numAuto++;
+        printf("aggiunta\n");
+
+        return tmp;
+
+    }
+}
+
+/*4*/
+// SEMBRA FUNZIONARE
+void rottamaAuto(Stazione *inizio, int staz, int automobile, int m, Stazione **tail){
+    Stazione *tmp;
+    int i, flag;
+
+    if (staz <= m) {
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == staz)
+                break;
+            if (tmp->distanza > staz) {
+                printf("non rottamata\n");
+                return;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non rottamata\n");
+            return;
+        }
+
+        for (i = 0, flag = 0; i < MaxM; i++) {
+            if (tmp->automobili[i] == automobile) {
+                flag = 1;
+                tmp->automobili[i] = -1;
+                break;
+            }
+        }
+
+        if (flag) {
+            tmp->numAuto--;
+            if (tmp->maxAutonomia == automobile)
+                tmp->maxAutonomia = trovaMax(tmp->automobili);
+            printf("rottamata\n");
+        } else {
+            printf("non rottamata\n");
+        }
+    } else {
+        for (tmp = *tail; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == staz)
+                break;
+            if (tmp->distanza < staz) {
+                printf("non rottamata\n");
+                return;
+            }
+        }
+
+        if (tmp == NULL) {
+            printf("non rottamata\n");
+            return;
+        }
+
+        for (i = 0, flag = 0; i < MaxM; i++) {
+            if (tmp->automobili[i] == automobile) {
+                flag = 1;
+                tmp->automobili[i] = -1;
+                break;
+            }
+        }
+
+        if (flag) {
+            tmp->numAuto--;
+            if (tmp->maxAutonomia == automobile)
+                tmp->maxAutonomia = trovaMax(tmp->automobili);
+            printf("rottamata\n");
+        } else {
+            printf("non rottamata\n");
+        }
+    }
+}
+
+/*5*/
+void pianifica(Stazione *inizio, int partenza, int arrivo, int m, Stazione **tail){
+    if (partenza == arrivo){
+        printf("%d\n", partenza);
+        return;
+
+    } else if (partenza < arrivo){
+        pianificaPercorso1(inizio, partenza, arrivo, m, tail);
+
+    } else if (partenza > arrivo){
+        pianificaPercorso2(inizio, partenza, arrivo, m, tail);
+
+    }
+
+}
+
+/*6*/
+int trovaMax(int *array){
+    int i, max;
+    for (i=0, max=0; i<MaxM; i++){
+        if (array[i]>=max){
+            max = array[i];
+        }
+    }
+    return max;
+}
+
+/*9*/ lista* inserisci1(lista *head, int num){
+    lista *tmp, *nuovoNodo;
+
+    if (head == NULL){
+        head = malloc(sizeof (lista));
+        head->next = NULL;
+        head->prev = NULL;
+        head->num = num;
+        return head;
+    }
+
+    for (tmp=head; tmp; tmp = tmp->next){
+        if (tmp->next->num > num){
+            break;
+        }
+    }
+    nuovoNodo = malloc(sizeof (lista));
+    nuovoNodo->prev = tmp;
+    nuovoNodo->next = tmp->next;
+    nuovoNodo->num = num;
+    tmp->next = nuovoNodo;
+
+    return head;
+}
+
+/*8*/ lista* inserisci2(lista *head, int num){
+    lista *tmp, *nuovoNodo;
+
+    if (head == NULL){
+        head = malloc(sizeof (lista));
+        head->next = NULL;
+        head->prev = NULL;
+        head->num = num;
+        return head;
+    }
+
+    for (tmp=head; tmp; tmp = tmp->next){
+        if (tmp->next->num < num){
+            break;
+        }
+    }
+    nuovoNodo = malloc(sizeof (lista));
+    nuovoNodo->prev = tmp;
+    nuovoNodo->next = tmp->next;
+    nuovoNodo->num = num;
+    tmp->next = nuovoNodo;
+
+    return head;
+
+}
+
+/*9*/ void pianificaPercorso1(Stazione *inizio, int partenza, int arrivo, int m, Stazione **t){
+    Stazione  *tmp, *nuovoArrivo, *p, *a, *coda;
+    lista *head, *tail, *iter, *next;
+    int done, i, j;
+
+    if (partenza <= m) {
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == partenza) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza > partenza) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    } else {
+        for (tmp = *t; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == partenza) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza < partenza) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    }
+    p = tmp;
+    //printf("%d partenza %d autnomMax\n", p->distanza, p->maxAutonomia); //debugging
+
+    coda = *t;
+    if (arrivo - partenza <= coda->distanza - arrivo) {
+        for (; tmp; tmp = tmp->next) {
+            if (tmp->distanza == arrivo) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza > arrivo) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    } else {
+        for (tmp = *t; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == arrivo) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza < arrivo) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    }
+    a = tmp;
+    //printf("%d arrivo\n", a->distanza); //debugging
+
+    if (p->distanza + p->maxAutonomia >= a->distanza){
+        printf("%d %d\n", partenza, arrivo);
+        return;
+    }
+
+    if (p->maxAutonomia == -1){
+        printf("nessun percorso\n");
+        return;
+    }
+
+    head = malloc(sizeof (lista));
+    tail = malloc(sizeof (lista));
+    head->next = tail;
+    head->prev = NULL;
+    head->num = partenza;
+    tail->next = NULL;
+    tail->prev = head;
+    tail->num = arrivo;
+
+    nuovoArrivo = a;
+    done = 0;
+
+    i=0;
+    while (done == 0) {
+        i++;
+        //printf("%d ciclo while\n", i);
+        if (p->distanza + p->maxAutonomia >= nuovoArrivo->distanza){
+            done = 1;
+            break;
+        }
+        for (tmp = p, j=0; tmp; tmp = tmp->next, j++) {
+            //printf("%d ciclo for\n", j);
+            if (tmp->distanza + tmp->maxAutonomia >= nuovoArrivo->distanza) {
+                //printf("%d %d %d dist maxA nuovoArrivo\n", tmp->distanza, tmp->maxAutonomia, nuovoArrivo->distanza); // debugging
+                if (tmp->distanza == nuovoArrivo->distanza) {
+                    printf("nessun percorso\n");
+                    iter = head;
+                    while (iter) {
+                        next = iter->next;
+                        free(iter);
+                        iter = next;
+                    }
+                    return;
+                }
+                if (tmp->distanza != head->num){
+                    head = inserisci1(head, tmp->distanza);
+                }
+                nuovoArrivo = tmp;
+                break;
+            }
+        }
+    }
+
+    for (iter = head; iter; iter = next){
+        printf("%d ", iter->num);
+        next = iter->next;
+        free(iter);
+    }
+    printf("\n");
+
+    /*iter = head;
+    while (iter) {
+        next = iter->next;
+        free(iter);
+        iter = next;
+    }*/
+
+    return;
+
+}
+
+/*10*/ void pianificaPercorso2(Stazione *inizio, int partenza, int arrivo, int m, Stazione **t){
+    Stazione *p, *a, *tmp, *tmp2, *coda;
+    int nTappe, distanzaRaggiungibile, nuovaDistRaggiungibile;
+    lista *head, *tail, *iter, *next;
+
+    if (arrivo <= m) {
+        for (tmp = inizio; tmp; tmp = tmp->next) {
+            if (tmp->distanza == arrivo) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza > arrivo) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    } else {
+        for (tmp = *t; tmp; tmp = tmp->prev) {
+            if (tmp->distanza == arrivo) {
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza < arrivo) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    }
+    a = tmp;
+    // printf("ho trovato l'arrivo\n"); debugging
+
+    coda = *t;
+    if (partenza - arrivo <= coda->distanza - partenza) {
+        for (tmp = a; tmp; tmp = tmp->next) {
+            /*if (partenza==1279){
+                printf("sto scorrendo su questa stazione : %d\n", tmp->distanza);
+                printf("la prossima è %d\n", tmp->next->distanza);
+            }*/
+            if (tmp->distanza == partenza) {
+                //printf("trovata\n"); // debugging // NEL TEST OPEN 12 non trova la stazione 1279 nonostante risulta aggiunta
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza > partenza) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    } else {
+        for (tmp = *t; tmp; tmp = tmp->prev) {
+            /*if (partenza==1279){
+                printf("sto scorrendo su questa stazione : %d\n", tmp->distanza);
+                printf("la prossima è %d\n", tmp->next->distanza);
+            }*/
+            if (tmp->distanza == partenza) {
+                //printf("trovata\n"); // debugging // NEL TEST OPEN 12 non trova la stazione 1279 nonostante risulta aggiunta
+                break;
+            }
+            // non entrerà mai in questo if perché è garantinto che partenza e arrivo esistano
+            if (tmp->distanza < partenza) {
+                printf("nessun percorso\n");
+                return;
+            }
+        }
+    }
+    p = tmp;
+
+    //printf("ho trovato la partenza è %d\n", p->distanza); //debugging
+    //printf("%d\n", p->maxAutonomia); //debugging
+    //printf("ciao\n"); //debugging
+    //printf("%d max a p\n", a->distanza); //debugging
+    //printf("%d part %d arr %d maxA p %d maxA a\n", p->distanza, a->distanza, p->maxAutonomia, a->maxAutonomia); //debugging
+
+    if (p->distanza - p->maxAutonomia <= a->distanza){
+        printf("%d %d\n", partenza, arrivo);
+        return;
+    }
+
+    //printf("ho valutato se il percorso ha 2 tappe\n"); // debugging
+    head = malloc(sizeof (lista));
+    tail = malloc(sizeof (lista));
+    head->next = tail;
+    head->prev = NULL;
+    head->num = partenza;
+    tail->next = NULL;
+    tail->prev = head;
+    tail->num = arrivo;
+
+    //printf("ho instanziato la lista\n"); // debugging
+
+    distanzaRaggiungibile = p->distanza - p->maxAutonomia;
+    nuovaDistRaggiungibile = distanzaRaggiungibile;
+    nTappe = 1;
+
+    //printf("Sto cercando il percorso\n"); //debugging
+    for(tmp = p->prev; tmp; tmp = tmp->prev){
+        if(tmp->distanza < nuovaDistRaggiungibile){
+            printf("nessun percorso\n");
+            iter = head;
+            while (iter) {
+                next = iter->next;
+                free(iter);
+                iter = next;
+            }
+            return;
+        }
+        if (tmp->distanza >= distanzaRaggiungibile){
+            tmp->tappe = nTappe;
+            //flag=0;
+        } else {
+            nTappe++;
+            tmp->tappe = nTappe;
+            distanzaRaggiungibile = nuovaDistRaggiungibile;
+            //flag=1;
+        }
+        if (tmp->distanza - tmp->maxAutonomia < nuovaDistRaggiungibile){
+            nuovaDistRaggiungibile = tmp->distanza - tmp->maxAutonomia;
+        }
+        if (tmp->distanza == a->distanza){
+            break;
+        }
+    }
+
+    a->tappe = 0;
+    tmp2 = a;
+
+    //printf("ho effettuato uno scorrimento, adesso ne faccio un altro\n"); // debuugging
+
+    for(tmp = a; tmp->distanza != p->distanza; tmp = tmp->next){
+        //printf("sto valutando se inserire %d che ha autonomia %d nella lisat: per arrivarci servono %d tappe e le tappe che valuto sono %d\n", tmp->distanza, tmp->maxAutonomia, tmp->tappe, nTappe);
+        //printf("%d ultima distanza presa in considerazione \n", tmp2->distanza);
+        if (tmp->distanza != a->distanza && tmp->tappe == nTappe-1 && tmp->distanza - tmp->maxAutonomia <= tmp2->distanza){
+            head = inserisci2(head, tmp->distanza);
+            nTappe--;
+            tmp2 = tmp;
+            //printf("Ho inserito %d nella lista\n", tmp->distanza);
+        }
+        tmp->tappe = 0;
+    }
+
+    for (iter = head; iter; iter = next){
+        printf("%d ", iter->num);
+        next = iter->next;
+        free(iter);
+    }
+    printf("\n");
+
+    /*iter = head;
+    while (iter) {
+        next = iter->next;
+        free(iter);
+        iter = next;
+    }*/
+
+    return;
+
+}
+
+
